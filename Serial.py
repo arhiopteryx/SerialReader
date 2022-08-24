@@ -11,6 +11,8 @@ import serial
 from pylab import *
 from serial.tools import list_ports
 from threading import Thread
+import shelve
+
 
 
 class Main(tk.Frame):
@@ -22,6 +24,16 @@ class Main(tk.Frame):
         self.fileName = tk.StringVar()
         self.textFromPort = tk.StringVar()
         self.textFromPort.set("Serial: ")
+
+        self.shelveFileName = "SerialData"
+        try:
+            shelveFile = shelve.open( self.shelveFileName)
+            self.currentSpeed = shelveFile["speed"]
+            shelveFile.close()
+        except:
+            self.currentSpeed = 4
+
+
 
         self.isOpenPort = False
         
@@ -55,10 +67,16 @@ class Main(tk.Frame):
         try:
             speed = self.comboSpeed.get()
             port = self.comboPort.get()
-            fileName = self.entryFileName.get()
+            fileName = self.entryFileName.get()    
 
+            shelveFile = shelve.open( self.shelveFileName)
+            shelveFile["speed"] = self.speeds.index(int(speed))
+            shelveFile.close()
+            
             if speed == "" or port == "" or fileName == "":
                 messagebox.showerror('Error', 'Empty field')
+                self.btnReadPort.configure(text="Read from port to file")
+                self.isOpenPort = False
                 return
             
             ser = serial.Serial(port, timeout=None, baudrate=int(speed))
@@ -66,19 +84,20 @@ class Main(tk.Frame):
             self.textFromPort.set("Serial: ...")
 
             while(True):
-                if self.isOpenPort == False:
+                if self.isOpenPort == False:  
                     self.textFromPort.set("Serial: ")
-                    break
+                    return
                 textFromSerial = str(ser.readline())
                 textFromSerial = textFromSerial.replace("b'", "")
                 textFromSerial = textFromSerial.replace("\\r\\n'", "")
                 self.textFromPort.set("Serial: " + textFromSerial)
                 file.write(textFromSerial + '\n')            
             file.close()         
-            
+        
         except :
             messagebox.showerror('Error', 'Do not open port') 
-            file.close()
+            self.btnReadPort.configure(text="Read from port to file")
+            self.isOpenPort = False
             
 
     def init_main(self):
@@ -88,7 +107,7 @@ class Main(tk.Frame):
         
         self.comboSpeed = ttk.Combobox(root, values=self.speeds, font = ("Verdana" , 12), state="readonly")
         self.comboSpeed.pack(padx=5, pady=5, side=TOP)
-        self.comboSpeed.current(4)
+        self.comboSpeed.current(int(self.currentSpeed))
 
         self.labelPort = tk.Label(root, text='Port', fg='black', font="Verdana 12", width=10)
         self.labelPort.pack(padx=5, pady=5, side=TOP)
